@@ -1,0 +1,142 @@
+(.venv) Mac:cyber-quantum-project dimitrimontgomery$ python main.py
+============================================================
+  ML FOR INTRUSION DETECTION — NSL-KDD
+  quick=False  reprocess=False
+============================================================
+============================================================
+DATA PREPROCESSING — NSL-KDD
+============================================================
+[data] Loading NSL-KDD ...
+[data] Raw — train: (125973, 43), test: (22544, 43)
+[data] Removed 9 duplicate training rows
+[data] Train — normal: 67343, attack: 58621
+[data] Test  — normal: 9711,  attack: 12833
+[data] After one-hot encoding: 122 features
+[data] StandardScaler fitted and saved.
+[data] Saved processed arrays to /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/data/processed/
+============================================================
+Preprocessing complete.
+  Train : (125964, 122)  |  Attack rate: 46.5%
+  Test  : (22544, 122)   |  Attack rate: 56.9%
+============================================================
+[main] X_train: (125964, 122)  X_test: (22544, 122)
+============================================================
+CLASSICAL MODELS
+  Train: 125964 samples, 122 features
+  Test : 22544 samples
+============================================================
+
+[classical] Training Random Forest ...
+  [Random Forest]
+    Accuracy  : 0.7768
+    Precision : 0.8167
+    Recall    : 0.8008
+    F1        : 0.7760
+    ROC-AUC   : 0.9598
+    Train time: 1.40s
+    Infer time: 0.0265s
+
+[classical] Training SVM (RBF) ...
+
+  [SVM (RBF)]
+    Accuracy  : 0.7872
+    Precision : 0.8066
+    Recall    : 0.8043
+    F1        : 0.7872
+    ROC-AUC   : 0.9040
+    Train time: 1055.89s
+    Infer time: 10.6890s
+
+[classical] Training Logistic Regression ...
+  [Logistic Regression]
+    Accuracy  : 0.7547
+    Precision : 0.7845
+    Recall    : 0.7755
+    F1        : 0.7542
+    ROC-AUC   : 0.7822
+    Train time: 1.23s
+    Infer time: 0.0035s
+
+[classical] Training k-Nearest Neighbors ...
+  [k-Nearest Neighbors]
+    Accuracy  : 0.7705
+    Precision : 0.7958
+    Recall    : 0.7897
+    F1        : 0.7703
+    ROC-AUC   : 0.8197
+    Train time: 6.29s
+    Infer time: 3.0246s
+
+============================================================
+Classical models complete.
+============================================================
+
+[deep learning] Device: cpu
+============================================================
+DEEP LEARNING MODEL
+  Train: 113368, Val: 12596, Test: 22544, Features: 122
+============================================================
+  Epoch   1/50 — train: 0.0642  val: 0.0536
+  Epoch   2/50 — train: 0.0254  val: 0.0484
+  Epoch   3/50 — train: 0.0221  val: 0.0300
+  Epoch   4/50 — train: 0.0202  val: 0.0343
+  Epoch   5/50 — train: 0.0184  val: 0.0236
+  Epoch   6/50 — train: 0.0171  val: 0.0416
+  Epoch   7/50 — train: 0.0168  val: 0.0560
+  Epoch   8/50 — train: 0.0157  val: 0.0266
+  Epoch   9/50 — train: 0.0152  val: 0.0263
+  Epoch  10/50 — train: 0.0145  val: 0.0264
+  Early stopping at epoch 10.
+
+  [Neural Network]
+    Accuracy  : 0.7727
+    Precision : 0.7977
+    Recall    : 0.7919
+    F1        : 0.7725
+    ROC-AUC   : 0.8883
+    Train time: 9.09s
+    Infer time: 0.0343s
+[deep learning] Model saved to /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/models/neural_network.pt
+
+============================================================
+Deep learning model complete.
+============================================================
+============================================================
+EVALUATION  (5 models)
+============================================================
+[eval] Summary table saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/metrics/summary.csv
+                     accuracy  precision  recall      f1  roc_auc  train_time_s  infer_time_s
+model                                                                                        
+Random Forest          0.7768     0.8167  0.8008  0.7760   0.9598          1.40        0.0265
+SVM (RBF)              0.7872     0.8066  0.8043  0.7872   0.9040       1055.89       10.6890
+Logistic Regression    0.7547     0.7845  0.7755  0.7542   0.7822          1.23        0.0035
+k-Nearest Neighbors    0.7705     0.7958  0.7897  0.7703   0.8197          6.29        3.0246
+Neural Network         0.7727     0.7977  0.7919  0.7725   0.8883          9.09        0.0343
+[eval] Confusion matrix saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/cm_Random_Forest.png
+[eval] Confusion matrix saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/cm_SVM_RBF.png
+[eval] Confusion matrix saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/cm_Logistic_Regression.png
+[eval] Confusion matrix saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/cm_k-Nearest_Neighbors.png
+[eval] Confusion matrix saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/cm_Neural_Network.png
+[eval] ROC curve overlay saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/roc_curves.png
+[eval] Accuracy bar chart saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/accuracy_bar.png
+[eval] Training time chart saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/training_time_bar.png
+[eval] Plot saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/f1_bar.png
+
+============================================================
+Evaluation complete.
+  Plots   → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/
+  Metrics → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/metrics/summary.csv
+============================================================
+
+============================================================
+  PIPELINE COMPLETE — 18m 1s
+  Models: 5  |  Results: results/
+============================================================
+
+Top models by accuracy:
+model
+SVM (RBF)              0.7872
+Random Forest          0.7768
+Neural Network         0.7727
+k-Nearest Neighbors    0.7705
+Logistic Regression    0.7547
