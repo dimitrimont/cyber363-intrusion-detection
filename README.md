@@ -16,15 +16,15 @@ of its normal connections. Both are reported. From `results/metrics/summary.csv`
 | Model | Threshold | Attacks caught | seen types | new types | False alarms | Accuracy |
 |---|---|---|---|---|---|---|
 | Random Forest | default (0.5) | 60.5% | 76.8% | 21.1% | 2.7% | 76.4% |
-| | 1% budget (0.077) | **90.0%** | 91.0% | **87.5%** | 9.9% | **90.0%** |
+|  | 1% budget (0.077) | **90.0%** | 91.0% | **87.5%** | 9.9% | **90.0%** |
 | SVM (RBF) | default (margin 0) | 68.0% | 77.2% | 45.6% | 7.2% | 78.7% |
-| | 1% budget | 68.5% | 77.4% | 47.1% | 7.3% | 78.9% |
+|  | 1% budget | 68.5% | 77.4% | 47.1% | 7.3% | 78.9% |
 | Logistic Regression | default (0.5) | 62.6% | 71.3% | 41.5% | 7.4% | 75.5% |
-| | 1% budget (0.75) | 60.5% | 69.8% | 38.0% | 7.0% | 74.5% |
-| k-Nearest Neighbors | default (0.5) | 65.0% | 73.9% | 43.2% | 7.2% | 77.0% |
-| | 1% budget (0.2) | 71.9% | 79.3% | 54.0% | 7.6% | 80.7% |
+|  | 1% budget (0.75) | 60.5% | 69.8% | 38.0% | 7.0% | 74.5% |
+| k-Nearest Neighbors | default (0.5) | 65.0% | 73.9% | 43.2% | 7.2% | 76.9% |
+|  | 1% budget (0.2) | 71.9% | 79.3% | 53.9% | 7.6% | 80.7% |
 | Neural Network | default (0.5) | 69.3% | 76.4% | 52.2% | 6.7% | 79.7% |
-| | 1% budget (0.39) | 70.3% | 77.1% | 53.7% | 7.0% | 80.0% |
+|  | 1% budget (0.39) | 70.3% | 77.1% | 53.7% | 7.0% | 80.0% |
 
 *Attacks caught* is the share of attack connections flagged; *false alarms* the share of normal
 connections flagged. *New types* are the 17 attack types (3,750 of the test file's 12,833 attacks)

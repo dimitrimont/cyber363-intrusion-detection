@@ -36,7 +36,7 @@ def rel(path):
 def build_summary_table(rows):
     df = pd.DataFrame([{**{"model": r["model_name"], "rule": r["rule"],
                            "threshold": None if r["threshold"] is None else round(float(r["threshold"]), 4)},
-                        **{c: round(float(r[c]), 4) for c in COLUMNS}} for r in rows]).set_index(["model", "rule"])
+                        **{c: round(float(r[c]), 6) for c in COLUMNS}} for r in rows]).set_index(["model", "rule"])
     os.makedirs(METRICS_DIR, exist_ok=True)
     path = os.path.join(METRICS_DIR, "summary.csv")
     df.to_csv(path)

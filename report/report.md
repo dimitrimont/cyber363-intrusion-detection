@@ -89,15 +89,15 @@ of the validation slice's normal connections.
 | Model | Threshold | Attacks caught | seen types | new types | False alarms | Accuracy | ROC AUC |
 |---|---|---|---|---|---|---|---|
 | Random Forest | default | 60.5% | 76.8% | 21.1% | 2.7% | 76.4% | **0.962** |
-| | 1% budget (0.077) | **90.0%** | **91.0%** | **87.5%** | 9.9% | **90.0%** | |
+|  | 1% budget (0.077) | **90.0%** | **91.0%** | **87.5%** | 9.9% | **90.0%** |  |
 | SVM (RBF) | default | 68.0% | 77.2% | 45.6% | 7.2% | 78.7% | 0.903 |
-| | 1% budget | 68.5% | 77.4% | 47.1% | 7.3% | 78.9% | |
+|  | 1% budget | 68.5% | 77.4% | 47.1% | 7.3% | 78.9% |  |
 | Logistic Regression | default | 62.6% | 71.3% | 41.5% | 7.4% | 75.5% | 0.781 |
-| | 1% budget (0.75) | 60.5% | 69.8% | 38.0% | 7.0% | 74.5% | |
-| k-Nearest Neighbors | default | 65.0% | 73.9% | 43.2% | 7.2% | 77.0% | 0.820 |
-| | 1% budget (0.2) | 71.9% | 79.3% | 54.0% | 7.6% | 80.7% | |
+|  | 1% budget (0.75) | 60.5% | 69.8% | 38.0% | 7.0% | 74.5% |  |
+| k-Nearest Neighbors | default | 65.0% | 73.9% | 43.2% | 7.2% | 76.9% | 0.820 |
+|  | 1% budget (0.2) | 71.9% | 79.3% | 53.9% | 7.6% | 80.7% |  |
 | Neural Network | default | 69.3% | 76.4% | 52.2% | 6.7% | 79.7% | 0.900 |
-| | 1% budget (0.39) | 70.3% | 77.1% | 53.7% | 7.0% | 80.0% | |
+|  | 1% budget (0.39) | 70.3% | 77.1% | 53.7% | 7.0% | 80.0% |  |
 
 ### Why every model lands near 77%
 
@@ -123,17 +123,18 @@ false alarms is acceptable depends on how many alerts can be read; at 0.5 the fo
 
 | Model | Fit | Score the test file |
 |---|---|---|
-| Random Forest | 1.8 s | 0.06 s |
-| SVM (RBF) | 177 s | 24 s |
-| Logistic Regression | 1.0 s | 0.007 s |
-| k-Nearest Neighbors | 0.01 s | 7.2 s |
-| Neural Network | 8.7 s | 0.02 s |
+| Random Forest | 2.4 s | 0.07 s |
+| SVM (RBF) | 217 s | 20.2 s |
+| Logistic Regression | 1.1 s | 0.009 s |
+| k-Nearest Neighbors | 0.008 s | 7.4 s |
+| Neural Network | 9.2 s | 0.02 s |
 
 The first version reported 1,056 s for the SVM. Most of that was `probability=True`, which fits the
 SVM five more times to calibrate probabilities (808 s for the fit with it, 108 s without, measured on
 their own), plus scoring the test file, which the timer included. The calibration changed no
 prediction and no AUC, so it is gone. k-NN's cost is all at test time: it compares each connection
-with every training row.
+with every training row. Times vary with the machine's load: across three runs of this pipeline the
+SVM's fit took 177 to 219 s.
 
 ### Discussion
 
@@ -141,16 +142,17 @@ with every training row.
 and its threshold can be set from the training side to trade false alarms for detection; at a 1%
 validation budget it catches 90% of attacks, including 87.5% of types it has never seen.
 
-**SVM** catches the most attacks at its default threshold (68.0%) but costs the most time and gains
-nothing at the budgeted threshold.
+**SVM** catches 68.0% of attacks at its default threshold, second to the network, but costs by far
+the most time and gains little at the budgeted threshold.
 
 **Logistic Regression** is the fastest and the weakest at the test file, but not because it is
 linear: inside the training file it is 97.4% accurate.
 
-**k-NN** improves to 71.9% at its budgeted threshold, but it scores the test file slowest.
+**k-NN** improves to 71.9% at its budgeted threshold, but every prediction compares a connection with
+every training row, so it is slow to score (7.4 s for the test file, against 0.07 s for the forest).
 
-**Neural Network** is competitive (69.3% caught at 0.5, AUC 0.900) with no tuning beyond early
-stopping.
+**Neural Network** catches the most attacks at its default threshold (69.3%, AUC 0.900) with no
+tuning beyond early stopping.
 
 ## 6. Conclusion & Future Work
 
