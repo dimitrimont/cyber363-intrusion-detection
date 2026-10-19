@@ -1,16 +1,22 @@
 """
 data_preprocessing.py — loads and prepares NSL-KDD for model training.
-Pipeline: load → clean/label → one-hot encode → normalize → save
+Pipeline: load → clean/label → one-hot encode → normalize → split off validation → save
+
+The validation slice (10% of the training file) is held out of every model's training and used
+for one thing: choosing a threshold that keeps false alarms within a budget. The test file is only
+ever scored.
 """
 
 import os
 import random
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import joblib
 
 SEED = 42
+VAL_FRACTION = 0.10
 random.seed(SEED)
 np.random.seed(SEED)
 
@@ -18,9 +24,6 @@ PROJECT_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR      = os.path.join(PROJECT_ROOT, "data", "nslkdd")
 PROCESSED_DIR = os.path.join(PROJECT_ROOT, "data", "processed")
 MODELS_DIR    = os.path.join(PROJECT_ROOT, "results", "models")
-
-os.makedirs(PROCESSED_DIR, exist_ok=True)
-os.makedirs(MODELS_DIR, exist_ok=True)
 
 # NSL-KDD has no header row — column names assigned manually
 COLUMNS = [
@@ -39,18 +42,23 @@ COLUMNS = [
 ]
 
 CATEGORICAL = ['protocol_type', 'service', 'flag']
+ARRAYS = ["X_train", "y_train", "X_val", "y_val", "X_test", "y_test", "test_type", "test_new"]
 
 
-def load_raw_data(quick: bool = False):
-    train_path = os.path.join(DATA_DIR, "KDDTrain+.txt")
-    test_path  = os.path.join(DATA_DIR, "KDDTest+.txt")
+def processed_dir(quick: bool = False) -> str:
+    """Quick and full runs keep their arrays apart, so a --quick run never feeds a full one."""
+    return os.path.join(PROCESSED_DIR, "quick" if quick else "full")
+
+
+def load_raw_data(quick: bool = False, data_dir: str = DATA_DIR):
+    train_path = os.path.join(data_dir, "KDDTrain+.txt")
+    test_path  = os.path.join(data_dir, "KDDTest+.txt")
 
     if not os.path.exists(train_path) or not os.path.exists(test_path):
         raise FileNotFoundError(
-            f"NSL-KDD files not found in {DATA_DIR}/\n"
-            "Download KDDTrain+.txt and KDDTest+.txt from:\n"
-            "  https://www.kaggle.com/datasets/hassan06/nslkdd\n"
-            "and place them in data/nslkdd/"
+            f"NSL-KDD files not found in {data_dir}/\n"
+            "They ship with this repository; if they are missing, download KDDTrain+.txt and\n"
+            "KDDTest+.txt from https://www.unb.ca/cic/datasets/nsl.html and place them in data/nslkdd/"
         )
 
     print("[data] Loading NSL-KDD ...")
@@ -64,6 +72,18 @@ def load_raw_data(quick: bool = False):
         print(f"[data] --quick: {df_train.shape[0]} train, {df_test.shape[0]} test")
 
     return df_train, df_test
+
+
+def attack_types(df_train, df_test):
+    """Each test row's attack type, and whether that type appears anywhere in the training file.
+
+    KDDTest+ holds 17 attack types (3,750 rows) that KDDTrain+ does not, so a model is scored partly
+    on attacks it has never seen. The two are reported apart.
+    """
+    seen = set(df_train['label'])
+    test_type = df_test['label'].to_numpy(dtype=str)
+    test_new = np.array([t != 'normal' and t not in seen for t in test_type])
+    return test_type, test_new
 
 
 def clean_and_label(df_train, df_test):
@@ -107,53 +127,67 @@ def encode_categoricals(df_train, df_test):
     return df_train_enc, df_test_enc
 
 
-def normalize(X_train, X_test):
+def normalize(X_train, X_val, X_test, models_dir: str = MODELS_DIR):
+    """Fit on the training rows only; validation and test are only transformed."""
     scaler = StandardScaler()
     X_train_sc = scaler.fit_transform(X_train)
-    X_test_sc  = scaler.transform(X_test)
-    joblib.dump(scaler, os.path.join(MODELS_DIR, "scaler.joblib"))
-    print("[data] StandardScaler fitted and saved.")
-    return X_train_sc, X_test_sc
+    os.makedirs(models_dir, exist_ok=True)
+    joblib.dump(scaler, os.path.join(models_dir, "scaler.joblib"))
+    print("[data] StandardScaler fitted on the training rows and saved.")
+    return X_train_sc, scaler.transform(X_val), scaler.transform(X_test)
 
 
-def save_processed(X_train, y_train, X_test, y_test):
-    for name, arr in {"X_train": X_train, "y_train": y_train, "X_test": X_test, "y_test": y_test}.items():
-        np.save(os.path.join(PROCESSED_DIR, f"{name}.npy"), arr)
-    print(f"[data] Saved processed arrays to {PROCESSED_DIR}/")
+def save_processed(data: dict, quick: bool = False):
+    d = processed_dir(quick)
+    os.makedirs(d, exist_ok=True)
+    for name in ARRAYS:
+        np.save(os.path.join(d, f"{name}.npy"), data[name])
+    print(f"[data] Saved processed arrays to {os.path.relpath(d, PROJECT_ROOT)}/")
 
 
-def load_processed():
-    return {n: np.load(os.path.join(PROCESSED_DIR, f"{n}.npy")) for n in ["X_train", "y_train", "X_test", "y_test"]}
+def load_processed(quick: bool = False):
+    d = processed_dir(quick)
+    return {n: np.load(os.path.join(d, f"{n}.npy")) for n in ARRAYS}
 
 
-def processed_data_exists():
-    return all(os.path.exists(os.path.join(PROCESSED_DIR, f"{n}.npy")) for n in ["X_train", "y_train", "X_test", "y_test"])
+def processed_data_exists(quick: bool = False):
+    d = processed_dir(quick)
+    return all(os.path.exists(os.path.join(d, f"{n}.npy")) for n in ARRAYS)
 
 
-def preprocess(quick: bool = False):
+def preprocess(quick: bool = False, data_dir: str = DATA_DIR, save: bool = True):
     print("=" * 60)
     print("DATA PREPROCESSING — NSL-KDD")
     print("=" * 60)
 
-    df_train, df_test                    = load_raw_data(quick=quick)
+    df_train, df_test                    = load_raw_data(quick=quick, data_dir=data_dir)
+    test_type, test_new                  = attack_types(df_train, df_test)
     df_train, y_train, df_test, y_test   = clean_and_label(df_train, df_test)
     df_train_enc, df_test_enc            = encode_categoricals(df_train, df_test)
 
-    X_train = df_train_enc.values.astype(np.float32)
-    X_test  = df_test_enc.values.astype(np.float32)
-    y_train = y_train.values.astype(np.float32)
-    y_test  = y_test.values.astype(np.float32)
+    X = df_train_enc.values.astype(np.float32)
+    y = y_train.values.astype(np.float32)
+    X_test = df_test_enc.values.astype(np.float32)
+    y_test = y_test.values.astype(np.float32)
 
-    X_train, X_test = normalize(X_train, X_test)
-    save_processed(X_train, y_train, X_test, y_test)
+    # 10% of the training file, stratified, held out for choosing thresholds
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=VAL_FRACTION, stratify=y, random_state=SEED)
+    X_train, X_val, X_test = normalize(X_train, X_val, X_test)
+
+    data = {"X_train": X_train, "y_train": y_train, "X_val": X_val, "y_val": y_val,
+            "X_test": X_test, "y_test": y_test, "test_type": test_type, "test_new": test_new}
+    if save:
+        save_processed(data, quick=quick)
 
     print("=" * 60)
     print("Preprocessing complete.")
     print(f"  Train : {X_train.shape}  |  Attack rate: {y_train.mean()*100:.1f}%")
-    print(f"  Test  : {X_test.shape}   |  Attack rate: {y_test.mean()*100:.1f}%")
+    print(f"  Val   : {X_val.shape}   |  Attack rate: {y_val.mean()*100:.1f}%")
+    print(f"  Test  : {X_test.shape}   |  Attack rate: {y_test.mean()*100:.1f}%  "
+          f"|  attacks of types not in training: {int(test_new.sum())}")
     print("=" * 60)
 
-    return {"X_train": X_train, "y_train": y_train, "X_test": X_test, "y_test": y_test}
+    return data
 
 
 if __name__ == "__main__":

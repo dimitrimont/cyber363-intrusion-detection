@@ -2,9 +2,10 @@
 main.py — entry point for the NSL-KDD intrusion detection pipeline.
 
 Usage:
-  python main.py              # full run
-  python main.py --quick      # 10% data subset for fast testing
+  python main.py              # full run (about 5 minutes; the SVM is most of it)
+  python main.py --quick      # 10% data subset for fast testing (kept apart from the full arrays)
   python main.py --reprocess  # force re-run preprocessing
+  python main.py --skip-svm   # leave out the SVM
 """
 
 import os
@@ -26,6 +27,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--quick",     action="store_true", help="Use 10% of data")
     parser.add_argument("--reprocess", action="store_true", help="Re-run preprocessing")
+    parser.add_argument("--skip-svm",  action="store_true", help="Leave out the SVM")
     return parser.parse_args()
 
 
@@ -57,24 +59,26 @@ def main():
     _clear_results()
 
     # Stage 1 — Preprocessing
+    # Quick and full arrays live in separate folders: a --quick run can no longer leave 10% of the
+    # data where the next full run looks for it, and --quick is no longer ignored when full arrays exist.
     from data_preprocessing import preprocess, load_processed, processed_data_exists
-    if processed_data_exists() and not args.reprocess:
+    if processed_data_exists(args.quick) and not args.reprocess:
         print("[main] Processed data found — loading (use --reprocess to redo).")
-        data = load_processed()
+        data = load_processed(args.quick)
     else:
         data = preprocess(quick=args.quick)
     print(f"[main] X_train: {data['X_train'].shape}  X_test: {data['X_test'].shape}")
 
     # Stage 2 — Classical models
     from classical_models import train_all
-    _, classical_results = train_all(data)
+    _, classical_results = train_all(data, skip=("SVM (RBF)",) if args.skip_svm else ())
 
     # Stage 3 — Deep learning
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     from deep_learning_model import train_deep_learning_model
     try:
-        _, dl_metrics = train_deep_learning_model(data)
-        all_results = classical_results + [dl_metrics]
+        _, dl_rows = train_deep_learning_model(data)
+        all_results = classical_results + dl_rows
     except Exception as e:
         print(f"[main] Deep learning failed: {e}")
         all_results = classical_results
@@ -86,10 +90,10 @@ def main():
     elapsed = time.time() - wall_start
     print("\n" + "=" * 60)
     print(f"  PIPELINE COMPLETE — {int(elapsed//60)}m {int(elapsed%60)}s")
-    print(f"  Models: {len(all_results)}  |  Results: results/")
+    print(f"  Models: {len(all_results) // 2}, two thresholds each  |  Results: results/")
     print("=" * 60)
-    print("\nTop models by accuracy:")
-    print(df["accuracy"].sort_values(ascending=False).to_string())
+    print("\nAttacks caught and false alarms, both thresholds:")
+    print(df[["attacks_caught", "seen_caught", "new_caught", "false_alarms", "accuracy"]].to_string())
 
 
 if __name__ == "__main__":

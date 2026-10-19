@@ -1,6 +1,11 @@
-model,accuracy,precision,recall,f1,roc_auc,train_time_s,infer_time_s
-Random Forest,0.7768,0.8167,0.8008,0.776,0.9598,1.4,0.0265
-SVM (RBF),0.7872,0.8066,0.8043,0.7872,0.904,1055.89,10.689
-Logistic Regression,0.7547,0.7845,0.7755,0.7542,0.7822,1.23,0.0035
-k-Nearest Neighbors,0.7705,0.7958,0.7897,0.7703,0.8197,6.29,3.0246
-Neural Network,0.7727,0.7977,0.7919,0.7725,0.8883,9.09,0.0343
+model,rule,threshold,accuracy,attacks_caught,seen_caught,new_caught,false_alarms,attack_precision,macro_f1,roc_auc,fit_s,predict_s
+Random Forest,default,,0.7635,0.605,0.7677,0.2109,0.027,0.9674,0.7622,0.9623,1.8412,0.0644
+Random Forest,1% false-alarm budget,0.0774,0.9002,0.8999,0.9104,0.8747,0.0995,0.9228,0.8986,0.9623,1.8412,0.0644
+SVM (RBF),default,,0.7866,0.6797,0.7722,0.4557,0.0722,0.9256,0.7866,0.9026,177.2831,23.7372
+SVM (RBF),1% false-alarm budget,-0.0494,0.7892,0.6852,0.7738,0.4707,0.0733,0.9251,0.7892,0.9026,177.2831,23.7372
+Logistic Regression,default,,0.755,0.6258,0.7128,0.4152,0.0743,0.9175,0.7545,0.7814,0.9764,0.0069
+Logistic Regression,1% false-alarm budget,0.7458,0.745,0.6052,0.698,0.3803,0.0702,0.9193,0.7442,0.7814,0.9764,0.0069
+k-Nearest Neighbors,default,,0.7695,0.6496,0.7394,0.432,0.0721,0.9225,0.7693,0.8196,0.0075,7.2004
+k-Nearest Neighbors,1% false-alarm budget,0.2,0.8072,0.719,0.7931,0.5395,0.0763,0.9257,0.8072,0.8196,0.0075,7.2004
+Neural Network,default,,0.7966,0.6934,0.7643,0.5216,0.0669,0.9319,0.7966,0.9003,8.7135,0.0159
+Neural Network,1% false-alarm budget,0.3902,0.8004,0.7027,0.771,0.5373,0.0704,0.9295,0.8004,0.9003,8.7135,0.0159

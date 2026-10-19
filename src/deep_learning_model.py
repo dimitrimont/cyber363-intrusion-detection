@@ -14,10 +14,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score,
-    f1_score, roc_auc_score, confusion_matrix
-)
+
+from metrics import both_thresholds
 
 SEED = 42
 random.seed(SEED)
@@ -26,7 +24,6 @@ torch.manual_seed(SEED)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELS_DIR   = os.path.join(PROJECT_ROOT, "results", "models")
-os.makedirs(MODELS_DIR, exist_ok=True)
 
 BATCH_SIZE    = 256
 MAX_EPOCHS    = 50
@@ -97,88 +94,63 @@ def train_model(model, train_loader, val_loader, device):
     return history, time.time() - t0
 
 
-def evaluate_model(model, X_test, y_test, device):
+def predict_scores(model, X, device):
     model.eval()
-    X_tensor = torch.tensor(X_test, dtype=torch.float32).to(device)
-    t0 = time.time()
     with torch.no_grad():
-        y_score = model(X_tensor).squeeze(1).cpu().numpy()
-    inference_time = time.time() - t0
-    y_pred = (y_score >= 0.5).astype(int)
-
-    return {
-        "model_name":       "Neural Network",
-        "accuracy":         accuracy_score(y_test, y_pred),
-        "precision":        precision_score(y_test, y_pred, average="macro", zero_division=0),
-        "recall":           recall_score(y_test, y_pred, average="macro", zero_division=0),
-        "f1":               f1_score(y_test, y_pred, average="macro", zero_division=0),
-        "roc_auc":          roc_auc_score(y_test, y_score),
-        "confusion_matrix": confusion_matrix(y_test, y_pred),
-        "inference_time":   inference_time,
-        "train_time":       None,
-        "y_pred":           y_pred,
-        "y_score":          y_score,
-    }
+        return model(torch.tensor(X, dtype=torch.float32).to(device)).squeeze(1).cpu().numpy()
 
 
 def train_deep_learning_model(data: dict):
-    X_train_full = data["X_train"]
-    y_train_full = data["y_train"]
-    X_test       = data["X_test"]
-    y_test       = data["y_test"]
-    input_dim    = X_train_full.shape[1]
+    X_train, y_train = data["X_train"], data["y_train"]
+    X_val, y_val     = data["X_val"], data["y_val"]
+    X_test, y_test   = data["X_test"], data["y_test"]
+    input_dim        = X_train.shape[1]
 
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"\n[deep learning] Device: {device}")
 
-    # 90/10 train/val split
-    n_val = max(1, int(0.10 * len(X_train_full)))
-    idx   = np.random.permutation(len(X_train_full))
-    val_idx, train_idx = idx[:n_val], idx[n_val:]
-
-    X_tr = torch.tensor(X_train_full[train_idx], dtype=torch.float32)
-    y_tr = torch.tensor(y_train_full[train_idx], dtype=torch.float32)
-    X_vl = torch.tensor(X_train_full[val_idx],   dtype=torch.float32)
-    y_vl = torch.tensor(y_train_full[val_idx],   dtype=torch.float32)
-
-    train_loader = DataLoader(TensorDataset(X_tr, y_tr), batch_size=BATCH_SIZE, shuffle=True)
-    val_loader   = DataLoader(TensorDataset(X_vl, y_vl), batch_size=BATCH_SIZE)
+    # The shared validation rows serve early stopping as well as the budget threshold.
+    train_loader = DataLoader(TensorDataset(torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.float32)),
+                              batch_size=BATCH_SIZE, shuffle=True)
+    val_loader   = DataLoader(TensorDataset(torch.tensor(X_val, dtype=torch.float32), torch.tensor(y_val, dtype=torch.float32)),
+                              batch_size=BATCH_SIZE)
 
     print("=" * 60)
     print("DEEP LEARNING MODEL")
-    print(f"  Train: {len(train_idx)}, Val: {len(val_idx)}, Test: {X_test.shape[0]}, Features: {input_dim}")
+    print(f"  Train: {len(X_train)}, Val: {len(X_val)}, Test: {len(X_test)}, Features: {input_dim}")
     print("=" * 60)
 
     model = IntrusionNet(input_dim=input_dim).to(device)
-    history, train_time = train_model(model, train_loader, val_loader, device)
+    history, fit_s = train_model(model, train_loader, val_loader, device)
 
-    metrics = evaluate_model(model, X_test, y_test, device)
-    metrics["train_time"] = train_time
-    metrics["history"]    = history
+    t0 = time.time()
+    test_score = predict_scores(model, X_test, device)
+    predict_s = time.time() - t0
+    val_score = predict_scores(model, X_val, device)
+    rows = both_thresholds("Neural Network", y_test, (test_score >= 0.5).astype(int), test_score, val_score, y_val, data["test_new"])
+    for r in rows:
+        r.update(fit_s=fit_s, predict_s=predict_s, y_score=test_score, history=history)
+        print(f"  [Neural Network — {r['rule']}] attacks caught {r['attacks_caught']:.4f} "
+              f"(seen {r['seen_caught']:.4f}, new {r['new_caught']:.4f}), false alarms {r['false_alarms']:.4f}, "
+              f"accuracy {r['accuracy']:.4f}, AUC {r['roc_auc']:.4f}")
 
-    print(f"\n  [Neural Network]")
-    print(f"    Accuracy  : {metrics['accuracy']:.4f}")
-    print(f"    Precision : {metrics['precision']:.4f}")
-    print(f"    Recall    : {metrics['recall']:.4f}")
-    print(f"    F1        : {metrics['f1']:.4f}")
-    print(f"    ROC-AUC   : {metrics['roc_auc']:.4f}")
-    print(f"    Train time: {metrics['train_time']:.2f}s")
-    print(f"    Infer time: {metrics['inference_time']:.4f}s")
-
+    os.makedirs(MODELS_DIR, exist_ok=True)
     torch.save(model.state_dict(), os.path.join(MODELS_DIR, "neural_network.pt"))
-    print(f"[deep learning] Model saved to {MODELS_DIR}/neural_network.pt")
+    print("[deep learning] Model saved to results/models/neural_network.pt")
 
     print("\n" + "=" * 60)
     print("Deep learning model complete.")
     print("=" * 60)
 
-    return model, metrics
+    return model, rows
 
 
 if __name__ == "__main__":
     import sys
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from data_preprocessing import load_processed, processed_data_exists, preprocess
-    if not processed_data_exists():
-        preprocess()
-    train_deep_learning_model(load_processed())
+    data = load_processed() if processed_data_exists() else preprocess()
+    train_deep_learning_model(data)

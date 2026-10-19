@@ -1,7 +1,7 @@
 # Machine Learning for Network Intrusion Detection
 
 **Course:** CYBER 363  
-**Date:** April 8, 2026
+**Date:** April 8, 2026; revised October 2026 (the original is the tag `first-version`)
 
 ---
 
@@ -22,6 +22,12 @@ This project applies machine learning to binary network intrusion detection usin
 | Training | 67,343 | 58,621 | 125,964 | 46.5% |
 | Test | 9,711 | 12,833 | 22,544 | 56.9% |
 
+The test file is not drawn from the same traffic as the training file. It holds 38 labels against
+the training file's 23, and **3,750 of its 12,833 attacks (29%) are of 17 types that never appear in
+training** (`mscan` 996, `apache2` 737, `processtable` 685, `snmpguess` 331, `saint` 319, `mailbomb`
+293, and eleven smaller ones). Some types that do appear are rare in training and common in test:
+`guess_passwd` has 53 training rows and 1,231 test rows.
+
 Each sample has 41 features (38 numeric, 3 categorical: `protocol_type`, `service`, `flag`). Attacks span four categories: DoS, Probe, R2L, and U2R — all collapsed to label 1 for binary classification.
 
 ---
@@ -33,9 +39,11 @@ Each sample has 41 features (38 numeric, 3 categorical: `protocol_type`, `servic
 3. **Deduplicate** — removed 9 identical training rows.
 4. **Fill NaN/inf** — replaced with column medians (computed from training data only).
 5. **One-hot encode** — `protocol_type`, `service`, `flag` encoded via `pd.get_dummies()`, fit on training data only; test set aligned to the same columns. Feature count: 41 → **122**.
-6. **Normalize** — `StandardScaler` fit on training data and applied to both splits.
+6. **Hold out a validation slice** — 10% of the training rows, stratified, used only to choose a
+   threshold (and for the network's early stopping). Models are fitted on the other 90%.
+7. **Normalize** — `StandardScaler` fit on the training rows and applied to the rest.
 
-All steps are fit on training data only to prevent data leakage.
+All steps are fit on training data only to prevent data leakage; the test file is only scored.
 
 ---
 
@@ -46,7 +54,7 @@ All steps are fit on training data only to prevent data leakage.
 | Model | Description | Key Config |
 |---|---|---|
 | Random Forest | Ensemble of 100 decision trees; majority vote | `n_estimators=100`, `n_jobs=-1` |
-| SVM (RBF) | Max-margin classifier with RBF kernel | `C=1.0`, `gamma='scale'` |
+| SVM (RBF) | Max-margin classifier with RBF kernel | `C=1.0`, `gamma='scale'` (no probability calibration; its margin is the score) |
 | Logistic Regression | Linear probability model; interpretability baseline | `max_iter=1000` |
 | k-Nearest Neighbors | Labels by majority vote of 5 nearest training samples | `k=5`, `n_jobs=-1` |
 
@@ -60,67 +68,100 @@ Input (122) → BatchNorm → Dense(256, ReLU) → Dropout(0.3)
             → Dense(64, ReLU) → Dense(1, Sigmoid)
 ```
 
-Trained with Adam (lr=0.001), batch size 256, BCE loss, and early stopping (patience=5). Stopped at **epoch 10** with best weights from epoch 5 (val loss 0.0236).
+Trained with Adam (lr=0.001), batch size 256, BCE loss, and early stopping (patience=5) on the
+validation slice.
+
+### Scoring and thresholds
+
+The first version of this report used precision, recall and F1 averaged over the two classes
+("macro"), and read the average recall as detection. For a detector the useful numbers are per
+class: the share of attacks caught and the share of normal connections flagged (false alarms), and
+here also how many attacks of new types are caught. Each model is reported at two thresholds: its
+default (probability 0.5, or the SVM's margin 0), and the lowest threshold that flags no more than 1%
+of the validation slice's normal connections.
 
 ---
 
 ## 5. Results and Discussion
 
-### Summary
+*Full metrics in `results/metrics/summary.csv`; plots in `results/plots/`.*
 
-*Full metrics in `results/metrics/summary.csv`*
+| Model | Threshold | Attacks caught | seen types | new types | False alarms | Accuracy | ROC AUC |
+|---|---|---|---|---|---|---|---|
+| Random Forest | default | 60.5% | 76.8% | 21.1% | 2.7% | 76.4% | **0.962** |
+| | 1% budget (0.077) | **90.0%** | **91.0%** | **87.5%** | 9.9% | **90.0%** | |
+| SVM (RBF) | default | 68.0% | 77.2% | 45.6% | 7.2% | 78.7% | 0.903 |
+| | 1% budget | 68.5% | 77.4% | 47.1% | 7.3% | 78.9% | |
+| Logistic Regression | default | 62.6% | 71.3% | 41.5% | 7.4% | 75.5% | 0.781 |
+| | 1% budget (0.75) | 60.5% | 69.8% | 38.0% | 7.0% | 74.5% | |
+| k-Nearest Neighbors | default | 65.0% | 73.9% | 43.2% | 7.2% | 77.0% | 0.820 |
+| | 1% budget (0.2) | 71.9% | 79.3% | 54.0% | 7.6% | 80.7% | |
+| Neural Network | default | 69.3% | 76.4% | 52.2% | 6.7% | 79.7% | 0.900 |
+| | 1% budget (0.39) | 70.3% | 77.1% | 53.7% | 7.0% | 80.0% | |
 
-| Model | Accuracy | F1 | ROC-AUC | Train Time | Infer Time |
-|---|---|---|---|---|---|
-| Random Forest | 0.7768 | 0.7760 | **0.9598** | 1.40s | 0.027s |
-| SVM (RBF) | **0.7872** | **0.7872** | 0.9040 | 1055.89s | 10.69s |
-| Logistic Regression | 0.7547 | 0.7542 | 0.7822 | **1.23s** | **0.004s** |
-| k-Nearest Neighbors | 0.7705 | 0.7703 | 0.8197 | 6.29s | 3.025s |
-| Neural Network | 0.7727 | 0.7725 | 0.8883 | 9.09s | 0.034s |
+### Why every model lands near 77%
 
-### Accuracy & F1
+Inside the training file the problem is nearly solved: by 5-fold cross-validation the random forest
+is 99.9% accurate and logistic regression 97.4%. The first version of this report took logistic
+regression's lower test score as proof that the classes are not linearly separable; the
+cross-validation says otherwise. What every model loses on the test file is the attacks it has never
+seen: at their default thresholds they catch 71 to 77% of attack types from training and 21 to 52% of
+the new ones. The random forest misses all 1,231 `guess_passwd` attacks, a type it saw 53 times.
 
-*See [accuracy_bar.png](../results/plots/accuracy_bar.png) and [f1_bar.png](../results/plots/f1_bar.png)*
+### Thresholds
 
-All models scored within a narrow 75–79% accuracy range, with F1 rankings matching accuracy rankings almost exactly. SVM edged out Random Forest on both metrics, but the gap is small (~1%).
+The random forest has the highest ROC AUC (0.962) but the fewest attacks caught at its default
+threshold (60.5%). Both are true: it scores new attacks above normal traffic, but rarely above 0.5.
+Chosen on the validation slice for a 1% false-alarm budget, its threshold falls to 0.077, and it then
+catches 90.0% of attacks, 87.5% of the new types. The cost is false alarms: 9.9% of the test file's
+normal connections are flagged, not 1%, because its normal traffic differs from the training file's
+too. The other models move little at their own 1% point, which sits near their default. Whether 10%
+false alarms is acceptable depends on how many alerts can be read; at 0.5 the forest raises the fewest
+(2.7%) and misses the most.
 
-### ROC-AUC
+### Training and testing time
 
-*See [roc_curves.png](../results/plots/roc_curves.png)*
+| Model | Fit | Score the test file |
+|---|---|---|
+| Random Forest | 1.8 s | 0.06 s |
+| SVM (RBF) | 177 s | 24 s |
+| Logistic Regression | 1.0 s | 0.007 s |
+| k-Nearest Neighbors | 0.01 s | 7.2 s |
+| Neural Network | 8.7 s | 0.02 s |
 
-Random Forest achieved the highest AUC (0.9598), meaning it is the best model for separating classes across all possible thresholds — even though its fixed-threshold accuracy was second. Logistic Regression was the weakest at 0.7822, confirming the decision boundary is not linearly separable in this feature space.
-
-### Confusion Matrices
-
-*See [cm_Random_Forest.png](../results/plots/cm_Random_Forest.png), [cm_SVM_RBF.png](../results/plots/cm_SVM_RBF.png), [cm_Logistic_Regression.png](../results/plots/cm_Logistic_Regression.png), [cm_k-Nearest_Neighbors.png](../results/plots/cm_k-Nearest_Neighbors.png), [cm_Neural_Network.png](../results/plots/cm_Neural_Network.png)*
-
-SVM had the fewest false negatives (highest recall 0.8043), which is the most critical metric in an IDS — missed attacks are more dangerous than false alarms. Logistic Regression had the most missed attacks (recall 0.7755). Random Forest had the fewest false alarms (highest precision 0.8167).
-
-### Training Time
-
-*See [training_time_bar.png](../results/plots/training_time_bar.png)*
-
-SVM's training time (1,055s / ~17.6 min) dwarfs every other model due to its quadratic scaling with sample count. All other models trained in under 10 seconds. This makes SVM impractical in scenarios requiring frequent retraining on new attack data.
+The first version reported 1,056 s for the SVM. Most of that was `probability=True`, which fits the
+SVM five more times to calibrate probabilities (808 s for the fit with it, 108 s without, measured on
+their own), plus scoring the test file, which the timer included. The calibration changed no
+prediction and no AUC, so it is gone. k-NN's cost is all at test time: it compares each connection
+with every training row.
 
 ### Discussion
 
-**Random Forest** is the best overall model. Its AUC of 0.9598 means threshold tuning could push accuracy above 78.72% (the SVM's best), and it trains in 1.4 seconds. The SVM's marginally better accuracy is not worth a 750× training time cost.
+**Random Forest** is still the recommended model, now for a measured reason: it ranks attacks best,
+and its threshold can be set from the training side to trade false alarms for detection; at a 1%
+validation budget it catches 90% of attacks, including 87.5% of types it has never seen.
 
-**Logistic Regression** is the weakest classifier but the most practical for latency-critical deployments — 1.23s training and 0.004s inference. Its low AUC (0.7822) rules it out as a standalone IDS model but makes it viable as a fast first-pass filter.
+**SVM** catches the most attacks at its default threshold (68.0%) but costs the most time and gains
+nothing at the budgeted threshold.
 
-**k-NN** is impractical for real-time use; 3 seconds to classify 22k samples does not scale to high-throughput traffic monitoring.
+**Logistic Regression** is the fastest and the weakest at the test file, but not because it is
+linear: inside the training file it is 97.4% accurate.
 
-**Neural Network** performed competitively (AUC 0.8883, 0.034s inference) with no hyperparameter tuning beyond early stopping. Tree-based ensembles tend to outperform neural networks on structured tabular data, which is consistent with Random Forest beating it here.
+**k-NN** improves to 71.9% at its budgeted threshold, but it scores the test file slowest.
 
----
+**Neural Network** is competitive (69.3% caught at 0.5, AUC 0.900) with no tuning beyond early
+stopping.
 
 ## 6. Conclusion & Future Work
 
-Random Forest is the recommended model for this task — best ROC-AUC, second-best accuracy, and fast training and inference. SVM achieved slightly higher accuracy but is too slow to retrain. Logistic Regression confirmed the boundary is non-linear. The Neural Network showed that deep learning is competitive on this dataset with minimal tuning.
+On attack types they were trained on, all five models do well; on new types, which are 29% of the
+test file's attacks, the default thresholds catch about half at best. The random forest's scores carry
+more than its default threshold uses: chosen from training data alone, a lower threshold catches 90%
+of attacks at 10% false alarms.
 
 **Future improvements:**
-- **Threshold tuning** — Random Forest's AUC (0.9598) suggests a non-default threshold would improve recall without large accuracy loss.
-- **Multi-class classification** — distinguishing DoS vs. Probe vs. R2L/U2R enables more targeted response.
+- **Multi-class classification** — distinguishing DoS vs. Probe vs. R2L/U2R enables more targeted response, and shows which families the new types belong to.
+- **Under-represented types** — `guess_passwd` and `warezmaster` are rare in training and common in test; reweighting or more data for R2L attacks.
 - **Modern datasets** — CICIDS2017 or UNSW-NB15 reflect contemporary attack types better than the 1999-derived NSL-KDD traffic.
 - **Feature selection** — SHAP or mutual information could reduce the 122 features and improve generalization.
 

@@ -1,71 +1,62 @@
-(.venv) Mac:cyber-quantum-project dimitrimontgomery$ python main.py
 ============================================================
   ML FOR INTRUSION DETECTION — NSL-KDD
   quick=False  reprocess=False
 ============================================================
-============================================================
-DATA PREPROCESSING — NSL-KDD
-============================================================
-[data] Loading NSL-KDD ...
-[data] Raw — train: (125973, 43), test: (22544, 43)
-[data] Removed 9 duplicate training rows
-[data] Train — normal: 67343, attack: 58621
-[data] Test  — normal: 9711,  attack: 12833
-[data] After one-hot encoding: 122 features
-[data] StandardScaler fitted and saved.
-[data] Saved processed arrays to /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/data/processed/
-============================================================
-Preprocessing complete.
-  Train : (125964, 122)  |  Attack rate: 46.5%
-  Test  : (22544, 122)   |  Attack rate: 56.9%
-============================================================
-[main] X_train: (125964, 122)  X_test: (22544, 122)
+[main] Cleared 4 stale file(s) from results/
+[main] Processed data found — loading (use --reprocess to redo).
+[main] X_train: (113367, 122)  X_test: (22544, 122)
 ============================================================
 CLASSICAL MODELS
-  Train: 125964 samples, 122 features
-  Test : 22544 samples
+  Train: 113367 rows, 122 features; validation 12597; test 22544
 ============================================================
 
 [classical] Training Random Forest ...
-  [Random Forest]
-    Accuracy  : 0.7768
-    Precision : 0.8167
-    Recall    : 0.8008
-    F1        : 0.7760
-    ROC-AUC   : 0.9598
-    Train time: 1.40s
-    Infer time: 0.0265s
+  [Random Forest — default]
+    Attacks caught : 0.6050  (seen types 0.7677, new types 0.2109)
+    False alarms   : 0.0270
+    Accuracy       : 0.7635   macro F1 0.7622   ROC-AUC 0.9623
+    Fit 1.84s, test 0.06s
+  [Random Forest — 1% false-alarm budget (threshold 0.0774)]
+    Attacks caught : 0.8999  (seen types 0.9104, new types 0.8747)
+    False alarms   : 0.0995
+    Accuracy       : 0.9002   macro F1 0.8986   ROC-AUC 0.9623
+    Fit 1.84s, test 0.06s
 
 [classical] Training SVM (RBF) ...
-
-  [SVM (RBF)]
-    Accuracy  : 0.7872
-    Precision : 0.8066
-    Recall    : 0.8043
-    F1        : 0.7872
-    ROC-AUC   : 0.9040
-    Train time: 1055.89s
-    Infer time: 10.6890s
+  [SVM (RBF) — default]
+    Attacks caught : 0.6797  (seen types 0.7722, new types 0.4557)
+    False alarms   : 0.0722
+    Accuracy       : 0.7866   macro F1 0.7866   ROC-AUC 0.9026
+    Fit 177.28s, test 23.74s
+  [SVM (RBF) — 1% false-alarm budget (threshold -0.0494)]
+    Attacks caught : 0.6852  (seen types 0.7738, new types 0.4707)
+    False alarms   : 0.0733
+    Accuracy       : 0.7892   macro F1 0.7892   ROC-AUC 0.9026
+    Fit 177.28s, test 23.74s
 
 [classical] Training Logistic Regression ...
-  [Logistic Regression]
-    Accuracy  : 0.7547
-    Precision : 0.7845
-    Recall    : 0.7755
-    F1        : 0.7542
-    ROC-AUC   : 0.7822
-    Train time: 1.23s
-    Infer time: 0.0035s
+  [Logistic Regression — default]
+    Attacks caught : 0.6258  (seen types 0.7128, new types 0.4152)
+    False alarms   : 0.0743
+    Accuracy       : 0.7550   macro F1 0.7545   ROC-AUC 0.7814
+    Fit 0.98s, test 0.01s
+  [Logistic Regression — 1% false-alarm budget (threshold 0.746)]
+    Attacks caught : 0.6052  (seen types 0.6980, new types 0.3803)
+    False alarms   : 0.0702
+    Accuracy       : 0.7450   macro F1 0.7442   ROC-AUC 0.7814
+    Fit 0.98s, test 0.01s
 
 [classical] Training k-Nearest Neighbors ...
-  [k-Nearest Neighbors]
-    Accuracy  : 0.7705
-    Precision : 0.7958
-    Recall    : 0.7897
-    F1        : 0.7703
-    ROC-AUC   : 0.8197
-    Train time: 6.29s
-    Infer time: 3.0246s
+  [k-Nearest Neighbors — default]
+    Attacks caught : 0.6496  (seen types 0.7394, new types 0.4320)
+    False alarms   : 0.0721
+    Accuracy       : 0.7695   macro F1 0.7693   ROC-AUC 0.8196
+    Fit 0.01s, test 7.20s
+  [k-Nearest Neighbors — 1% false-alarm budget (threshold 0.2)]
+    Attacks caught : 0.7190  (seen types 0.7931, new types 0.5395)
+    False alarms   : 0.0763
+    Accuracy       : 0.8072   macro F1 0.8072   ROC-AUC 0.8196
+    Fit 0.01s, test 7.20s
 
 ============================================================
 Classical models complete.
@@ -74,69 +65,61 @@ Classical models complete.
 [deep learning] Device: cpu
 ============================================================
 DEEP LEARNING MODEL
-  Train: 113368, Val: 12596, Test: 22544, Features: 122
+  Train: 113367, Val: 12597, Test: 22544, Features: 122
 ============================================================
-  Epoch   1/50 — train: 0.0642  val: 0.0536
-  Epoch   2/50 — train: 0.0254  val: 0.0484
-  Epoch   3/50 — train: 0.0221  val: 0.0300
-  Epoch   4/50 — train: 0.0202  val: 0.0343
-  Epoch   5/50 — train: 0.0184  val: 0.0236
-  Epoch   6/50 — train: 0.0171  val: 0.0416
-  Epoch   7/50 — train: 0.0168  val: 0.0560
-  Epoch   8/50 — train: 0.0157  val: 0.0266
-  Epoch   9/50 — train: 0.0152  val: 0.0263
-  Epoch  10/50 — train: 0.0145  val: 0.0264
-  Early stopping at epoch 10.
-
-  [Neural Network]
-    Accuracy  : 0.7727
-    Precision : 0.7977
-    Recall    : 0.7919
-    F1        : 0.7725
-    ROC-AUC   : 0.8883
-    Train time: 9.09s
-    Infer time: 0.0343s
-[deep learning] Model saved to /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/models/neural_network.pt
+  Epoch   1/50 — train: 0.0639  val: 0.0976
+  Epoch   2/50 — train: 0.0258  val: 0.0491
+  Epoch   3/50 — train: 0.0223  val: 0.0255
+  Epoch   4/50 — train: 0.0196  val: 0.0232
+  Epoch   5/50 — train: 0.0185  val: 0.0288
+  Epoch   6/50 — train: 0.0176  val: 0.0924
+  Epoch   7/50 — train: 0.0167  val: 0.0243
+  Epoch   8/50 — train: 0.0154  val: 0.0234
+  Epoch   9/50 — train: 0.0150  val: 0.0263
+  Early stopping at epoch 9.
+  [Neural Network — default] attacks caught 0.6934 (seen 0.7643, new 0.5216), false alarms 0.0669, accuracy 0.7966, AUC 0.9003
+  [Neural Network — 1% false-alarm budget] attacks caught 0.7027 (seen 0.7710, new 0.5373), false alarms 0.0704, accuracy 0.8004, AUC 0.9003
+[deep learning] Model saved to results/models/neural_network.pt
 
 ============================================================
 Deep learning model complete.
 ============================================================
 ============================================================
-EVALUATION  (5 models)
+EVALUATION  (5 models, two thresholds each)
 ============================================================
-[eval] Summary table saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/metrics/summary.csv
-                     accuracy  precision  recall      f1  roc_auc  train_time_s  infer_time_s
-model                                                                                        
-Random Forest          0.7768     0.8167  0.8008  0.7760   0.9598          1.40        0.0265
-SVM (RBF)              0.7872     0.8066  0.8043  0.7872   0.9040       1055.89       10.6890
-Logistic Regression    0.7547     0.7845  0.7755  0.7542   0.7822          1.23        0.0035
-k-Nearest Neighbors    0.7705     0.7958  0.7897  0.7703   0.8197          6.29        3.0246
-Neural Network         0.7727     0.7977  0.7919  0.7725   0.8883          9.09        0.0343
-[eval] Confusion matrix saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/cm_Random_Forest.png
-[eval] Confusion matrix saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/cm_SVM_RBF.png
-[eval] Confusion matrix saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/cm_Logistic_Regression.png
-[eval] Confusion matrix saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/cm_k-Nearest_Neighbors.png
-[eval] Confusion matrix saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/cm_Neural_Network.png
-[eval] ROC curve overlay saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/roc_curves.png
-[eval] Accuracy bar chart saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/accuracy_bar.png
-[eval] Training time chart saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/training_time_bar.png
-[eval] Plot saved → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/f1_bar.png
-
-============================================================
-Evaluation complete.
-  Plots   → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/plots/
-  Metrics → /Users/dimitrimontgomery/courses/CYBER 363/cyber-quantum-project/results/metrics/summary.csv
+[eval] Summary table saved → results/metrics/summary.csv
+                                           threshold  accuracy  attacks_caught  seen_caught  new_caught  false_alarms  attack_precision  macro_f1  roc_auc     fit_s  predict_s
+model               rule                                                                                                                                                       
+Random Forest       default                      NaN    0.7635          0.6050       0.7677      0.2109        0.0270            0.9674    0.7622   0.9623    1.8412     0.0644
+                    1% false-alarm budget     0.0774    0.9002          0.8999       0.9104      0.8747        0.0995            0.9228    0.8986   0.9623    1.8412     0.0644
+SVM (RBF)           default                      NaN    0.7866          0.6797       0.7722      0.4557        0.0722            0.9256    0.7866   0.9026  177.2831    23.7372
+                    1% false-alarm budget    -0.0494    0.7892          0.6852       0.7738      0.4707        0.0733            0.9251    0.7892   0.9026  177.2831    23.7372
+Logistic Regression default                      NaN    0.7550          0.6258       0.7128      0.4152        0.0743            0.9175    0.7545   0.7814    0.9764     0.0069
+                    1% false-alarm budget     0.7458    0.7450          0.6052       0.6980      0.3803        0.0702            0.9193    0.7442   0.7814    0.9764     0.0069
+k-Nearest Neighbors default                      NaN    0.7695          0.6496       0.7394      0.4320        0.0721            0.9225    0.7693   0.8196    0.0075     7.2004
+                    1% false-alarm budget     0.2000    0.8072          0.7190       0.7931      0.5395        0.0763            0.9257    0.8072   0.8196    0.0075     7.2004
+Neural Network      default                      NaN    0.7966          0.6934       0.7643      0.5216        0.0669            0.9319    0.7966   0.9003    8.7135     0.0159
+                    1% false-alarm budget     0.3902    0.8004          0.7027       0.7710      0.5373        0.0704            0.9295    0.8004   0.9003    8.7135     0.0159
+[eval] Detection chart saved → results/plots/detection.png
+[eval] ROC curves saved → results/plots/roc_curves.png
+[eval] Training time chart saved → results/plots/training_time_bar.png
 ============================================================
 
 ============================================================
-  PIPELINE COMPLETE — 18m 1s
-  Models: 5  |  Results: results/
+  PIPELINE COMPLETE — 3m 52s
+  Models: 5, two thresholds each  |  Results: results/
 ============================================================
 
-Top models by accuracy:
-model
-SVM (RBF)              0.7872
-Random Forest          0.7768
-Neural Network         0.7727
-k-Nearest Neighbors    0.7705
-Logistic Regression    0.7547
+Attacks caught and false alarms, both thresholds:
+                                           attacks_caught  seen_caught  new_caught  false_alarms  accuracy
+model               rule                                                                                  
+Random Forest       default                        0.6050       0.7677      0.2109        0.0270    0.7635
+                    1% false-alarm budget          0.8999       0.9104      0.8747        0.0995    0.9002
+SVM (RBF)           default                        0.6797       0.7722      0.4557        0.0722    0.7866
+                    1% false-alarm budget          0.6852       0.7738      0.4707        0.0733    0.7892
+Logistic Regression default                        0.6258       0.7128      0.4152        0.0743    0.7550
+                    1% false-alarm budget          0.6052       0.6980      0.3803        0.0702    0.7450
+k-Nearest Neighbors default                        0.6496       0.7394      0.4320        0.0721    0.7695
+                    1% false-alarm budget          0.7190       0.7931      0.5395        0.0763    0.8072
+Neural Network      default                        0.6934       0.7643      0.5216        0.0669    0.7966
+                    1% false-alarm budget          0.7027       0.7710      0.5373        0.0704    0.8004
